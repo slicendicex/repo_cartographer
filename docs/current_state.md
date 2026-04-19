@@ -29,6 +29,7 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | 02 Lint | `lint` | eslint | Complete — exit code handling, dedicated renderer |
 | 03 Types | `types` | tsc | Complete — exit code fix, dedicated renderer, live scan verified |
 | 04 Dependencies | `dependencies` | deps_adapter | Complete — pyproject/requirements/package.json parsing |
+| 05 Entry Points | `entry_points` | entry_points_adapter | Complete — CLI commands, __main__.py, package main/bin |
 
 ### Tests
 
@@ -42,7 +43,8 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | ESLint adapter | `tests/adapters/test_eslint.py` | 16 |
 | Tsc adapter | `tests/adapters/test_tsc.py` | 16 |
 | Deps adapter | `tests/adapters/common/test_deps_adapter.py` | 10 |
-| **Total** | | **114 / 114 passing** |
+| Entry points adapter | `tests/adapters/common/test_entry_points_adapter.py` | 14 |
+| **Total** | | **128 / 128 passing** |
 
 ### Test fixtures
 

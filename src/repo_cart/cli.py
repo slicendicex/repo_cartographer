@@ -9,6 +9,7 @@ from typing import Annotated, Optional
 import typer
 
 from repo_cart.adapters.common.deps_adapter import DepsAdapter
+from repo_cart.adapters.common.entry_points_adapter import EntryPointsAdapter
 from repo_cart.adapters.js_ts.eslint_adapter import ESLintAdapter
 from repo_cart.adapters.js_ts.tsc_adapter import TscAdapter
 from repo_cart.adapters.python.radon_adapter import RadonAdapter
@@ -18,6 +19,7 @@ from repo_cart.core.renderer import write_outputs
 # All registered adapters. New adapters are added here.
 _DEFAULT_ADAPTERS = [
     DepsAdapter(),
+    EntryPointsAdapter(),
     RadonAdapter(),
     ESLintAdapter(),
     TscAdapter(),

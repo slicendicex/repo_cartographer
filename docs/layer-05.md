@@ -4,7 +4,7 @@
 **Source:** `entry_points_adapter`
 **Language:** any
 **Confidence:** `1.0` if any entry point found, `0.0` otherwise
-**Status:** PLANNED
+**Status:** COMPLETE
 
 ---
 

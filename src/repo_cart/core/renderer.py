@@ -152,6 +152,25 @@ def _render_dependencies(data: dict, use_color: bool, file: TextIO) -> None:
             print(f"  {ecosystem.capitalize()}: no dependencies listed", file=file)
 
 
+def _render_entry_points(data: dict, use_color: bool, file: TextIO) -> None:
+    cli = data.get("cli", [])
+    main_modules = data.get("main_modules", [])
+    package_main = data.get("package_main")
+
+    if not cli and not main_modules and not package_main:
+        print("  No entry points found", file=file)
+        return
+
+    if cli:
+        print(f"  CLI: {', '.join(cli)}", file=file)
+    if main_modules:
+        print(f"  __main__.py: {', '.join(main_modules)}", file=file)
+    else:
+        print("  No __main__.py found", file=file)
+    if package_main:
+        print(f"  package main: {package_main}", file=file)
+
+
 def _render_generic(data: dict, use_color: bool, file: TextIO) -> None:
     print(f"  {data}", file=file)
 
@@ -162,6 +181,7 @@ _TERMINAL_RENDERERS: dict[str, Callable[..., None]] = {
     "lint": _render_lint,
     "types": _render_types,
     "dependencies": _render_dependencies,
+    "entry_points": _render_entry_points,
 }
 
 
@@ -299,6 +319,34 @@ def _md_render_dependencies(data: dict) -> list[str]:
     return lines
 
 
+def _md_render_entry_points(data: dict) -> list[str]:
+    lines: list[str] = []
+    cli = data.get("cli", [])
+    main_modules = data.get("main_modules", [])
+    package_main = data.get("package_main")
+
+    if not cli and not main_modules and not package_main:
+        lines.append("No entry points found.")
+        return lines
+
+    if cli:
+        n = len(cli)
+        lines.append(f"**{n} CLI command{'s' if n != 1 else ''}**")
+        lines.append("")
+        for name in cli:
+            lines.append(f"- `{name}`")
+    if main_modules:
+        lines.append("")
+        lines.append("**`__main__.py` modules**")
+        lines.append("")
+        for mod in main_modules:
+            lines.append(f"- `{mod}`")
+    if package_main:
+        lines.append("")
+        lines.append(f"**package main:** `{package_main}`")
+    return lines
+
+
 def _md_render_generic(data: dict) -> list[str]:
     return [f"```json\n{json.dumps(data, indent=2)}\n```"]
 
@@ -309,6 +357,7 @@ _MARKDOWN_RENDERERS: dict[str, Callable[[dict], list[str]]] = {
     "lint": _md_render_lint,
     "types": _md_render_types,
     "dependencies": _md_render_dependencies,
+    "entry_points": _md_render_entry_points,
 }
 
 
