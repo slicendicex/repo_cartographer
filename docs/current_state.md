@@ -28,6 +28,7 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | 01 Complexity | `complexity` | radon | Complete — live scan verified |
 | 02 Lint | `lint` | eslint | Complete — exit code handling, dedicated renderer |
 | 03 Types | `types` | tsc | Complete — exit code fix, dedicated renderer, live scan verified |
+| 04 Dependencies | `dependencies` | deps_adapter | Complete — pyproject/requirements/package.json parsing |
 
 ### Tests
 
@@ -40,7 +41,8 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | Radon adapter | `tests/adapters/test_radon.py` | 14 |
 | ESLint adapter | `tests/adapters/test_eslint.py` | 16 |
 | Tsc adapter | `tests/adapters/test_tsc.py` | 16 |
-| **Total** | | **104 / 104 passing** |
+| Deps adapter | `tests/adapters/common/test_deps_adapter.py` | 10 |
+| **Total** | | **114 / 114 passing** |
 
 ### Test fixtures
 
@@ -60,7 +62,7 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | # | Item | Notes |
 |---|---|---|
 | TODO-1 | Walker symlink guard | Already using `followlinks=False` — confirm in tests |
-| TODO-2 | `--stdout` stderr redirect | Already implemented in `renderer.py:write_outputs()` |
+| ~~TODO-2~~ | ~~`--stdout` stderr redirect~~ | Done — implemented in `renderer.py:write_outputs()` |
 | TODO-3 | eslint dual-config detection | Already implemented in `eslint_adapter.py` |
 
 All three TODOs may already be resolved in the current implementation. Needs verification.
@@ -105,9 +107,16 @@ pytest tests/
 
 ---
 
-## Next up (Phase 2)
+## Next up (Phase 2 — file-parsing layers)
 
-- Layer 04: Dependencies (`pip-audit` / `npm audit`)
-- Layer 05: Coverage (`coverage.py` / `jest --coverage`)
-- Custom terminal renderers for lint and types layers
-- `.gitignore`-aware walker
+Implementation order (each layer is an independent slice):
+
+| Layer | Key | Adapter | Location | Prerequisite |
+|---|---|---|---|---|
+| 04 | `dependencies` | `deps_adapter` | `adapters/common/` | Creates `adapters/common/`, renderer dispatch table refactor |
+| 05 | `entry_points` | `entry_points_adapter` | `adapters/common/` | Layer 04 (dispatch table must exist) |
+| 06 | `test_coverage` | `test_coverage_adapter` | `adapters/common/` | Layer 04, adds `tests/fixtures/simple-python/` |
+
+All three: pure file parsing, `check()` always returns `True`, registered in `cli.py:_DEFAULT_ADAPTERS`.
+
+See `docs/layer-04.md`, `docs/layer-05.md`, `docs/layer-06.md` for specs and test plans.

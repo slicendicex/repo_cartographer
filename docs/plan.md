@@ -37,24 +37,34 @@ you run on an unfamiliar codebase or feed to an AI agent.
 
 **Before v0.1 ships (see TODOS.md):**
 - [ ] TODO-1: Walker symlink loop guard (already using `followlinks=False` — verify)
-- [ ] TODO-2: `--stdout` stderr redirect (already implemented in `renderer.py`)
+- [x] TODO-2: `--stdout` stderr redirect — already implemented in `renderer.py:write_outputs()`
 - [ ] TODO-3: eslint dual-config detection (already implemented in `eslint_adapter.py`)
 
 ---
 
-### Phase 2 — Ecosystem Layers (v0.2)
+### Phase 2 — File-Parsing Layers (v0.2)
 
-**Goal:** Add more coverage layers that work across ecosystems.
+**Goal:** Three new layers via pure file parsing — no external binaries, always present.
 
-**Candidate layers:**
-- Layer 04: Dependencies (`pip-audit` or `npm audit`) — known vulnerabilities
-- Layer 05: Coverage (`coverage.py`, `jest --coverage`) — test coverage ratio
-- Layer 06: Duplication (`jscpd`) — copy-paste detection
-- Layer 07: Doc coverage (`interrogate`) — Python docstring coverage
+**Layers:**
+- [x] Layer 04: Dependencies (`deps_adapter`, `adapters/common/`) — runtime + dev deps from pyproject.toml / requirements.txt / package.json. Includes renderer dispatch table refactor.
+- [ ] Layer 05: Entry Points (`entry_points_adapter`, `adapters/common/`) — CLI commands, `__main__.py`, package.json main/bin
+- [ ] Layer 06: Test Coverage (`test_coverage_adapter`, `adapters/common/`) — heuristic test file ratio + untested module list
 
-**Infrastructure improvements:**
-- Custom terminal renderers for lint and types layers
-- `.gitignore` parsing in walker (remove hardcoded exclusion list)
+**Implementation order (conflict-minimizing):**
+1. Layer 04 first: creates `adapters/common/`, does renderer dispatch table refactor, adds `_render_dependencies()`
+2. Layer 05 next: adds `entry_points_adapter.py` + `_render_entry_points()` to existing dispatch table
+3. Layer 06 last: adds `test_coverage_adapter.py` + `_render_test_coverage()` + `tests/fixtures/simple-python/`
+
+**Infrastructure (included in Layer 04):**
+- `adapters/common/__init__.py`
+- Renderer dispatch table refactor: `_TERMINAL_RENDERERS` + `_MARKDOWN_RENDERERS` dicts replacing elif chains
+- Reduces `to_markdown()` CC from 23 to ~8
+
+**Deferred to v0.3:**
+- Layer 07: Git Activity (`git log` parsing)
+- Custom terminal renderers for lint (02) and types (03) layers
+- `.gitignore` parsing in walker
 - Adapter auto-discovery via entry points (plugin architecture)
 
 ---

@@ -29,9 +29,10 @@ Top 5 hotspots shown. Top 10 skipped layers shown.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, Callable, TextIO
 
 
 # ANSI escape sequences.
@@ -46,56 +47,13 @@ def _c(text: str, code: str, use_color: bool) -> str:
     return f"{code}{text}{_RESET}" if use_color else text
 
 
-def to_terminal(
-    snapshot: dict[str, Any],
-    use_color: bool = True,
-    file: TextIO = sys.stdout,
-) -> None:
-    """Print the terminal summary to ``file`` (default stdout)."""
-    repo = snapshot.get("repo", ".")
-    scanned_at = snapshot.get("scanned_at", "")
-    layers = snapshot.get("layers", {})
-    skipped = snapshot.get("skipped_layers", [])
+def _strip_version(spec: str) -> str:
+    return re.split(r"[>=<!~\[\s]", spec)[0].strip()
 
-    print(_c(f"Repo Cartographer — {repo}", _BOLD, use_color), file=file)
-    if scanned_at:
-        print(f"Scanned at {scanned_at}", file=file)
-    print(file=file)
 
-    for layer_key, layer in layers.items():
-        source = layer.get("source", layer_key)
-        confidence = layer.get("confidence", 0.0)
-        data = layer.get("data", {})
-
-        header = f"{layer_key.upper()} ({source}, confidence: {confidence:.2f})"
-        print(_c(header, _CYAN, use_color), file=file)
-
-        if layer_key == "structure":
-            _render_structure(data, use_color, file)
-        elif layer_key == "complexity":
-            _render_complexity(data, use_color, file)
-        elif layer_key == "lint":
-            _render_lint(data, use_color, file)
-        elif layer_key == "types":
-            _render_types(data, use_color, file)
-        else:
-            # Generic layer rendering for future adapters.
-            print(f"  {data}", file=file)
-
-        print(file=file)
-
-    if skipped:
-        print(_c("SKIPPED LAYERS", _DIM, use_color), file=file)
-        for entry in skipped[:10]:
-            layer_name = entry.get("layer", "?")
-            reason = entry.get("reason", "")
-            code = entry.get("reason_code", "")
-            line = f"  {layer_name:<12} {reason}"
-            if code:
-                line += f"  [{code}]"
-            print(_c(line, _DIM, use_color), file=file)
-        print(file=file)
-
+# ---------------------------------------------------------------------------
+# Terminal renderers — each prints directly to file
+# ---------------------------------------------------------------------------
 
 def _render_structure(data: dict, use_color: bool, file: TextIO) -> None:
     file_count = data.get("file_count", 0)
@@ -179,9 +137,226 @@ def _render_types(data: dict, use_color: bool, file: TextIO) -> None:
             print(_c(line, _YELLOW, use_color), file=file)
 
 
+def _render_dependencies(data: dict, use_color: bool, file: TextIO) -> None:
+    for ecosystem, info in data.items():
+        runtime = info.get("runtime", [])
+        dev = info.get("dev", [])
+        total = info.get("total", 0)
+        if runtime:
+            names = "  ".join(_strip_version(p) for p in runtime)
+            print(f"  {ecosystem.capitalize()} runtime: {names}", file=file)
+        if dev:
+            names = "  ".join(_strip_version(p) for p in dev)
+            print(f"  {ecosystem.capitalize()} dev:     {names}  ({total} total)", file=file)
+        if not runtime and not dev:
+            print(f"  {ecosystem.capitalize()}: no dependencies listed", file=file)
+
+
+def _render_generic(data: dict, use_color: bool, file: TextIO) -> None:
+    print(f"  {data}", file=file)
+
+
+_TERMINAL_RENDERERS: dict[str, Callable[..., None]] = {
+    "structure": _render_structure,
+    "complexity": _render_complexity,
+    "lint": _render_lint,
+    "types": _render_types,
+    "dependencies": _render_dependencies,
+}
+
+
+def to_terminal(
+    snapshot: dict[str, Any],
+    use_color: bool = True,
+    file: TextIO = sys.stdout,
+) -> None:
+    """Print the terminal summary to ``file`` (default stdout)."""
+    repo = snapshot.get("repo", ".")
+    scanned_at = snapshot.get("scanned_at", "")
+    layers = snapshot.get("layers", {})
+    skipped = snapshot.get("skipped_layers", [])
+
+    print(_c(f"Repo Cartographer — {repo}", _BOLD, use_color), file=file)
+    if scanned_at:
+        print(f"Scanned at {scanned_at}", file=file)
+    print(file=file)
+
+    for layer_key, layer in layers.items():
+        source = layer.get("source", layer_key)
+        confidence = layer.get("confidence", 0.0)
+        data = layer.get("data", {})
+
+        header = f"{layer_key.upper()} ({source}, confidence: {confidence:.2f})"
+        print(_c(header, _CYAN, use_color), file=file)
+
+        render_fn = _TERMINAL_RENDERERS.get(layer_key, _render_generic)
+        render_fn(data, use_color, file)
+
+        print(file=file)
+
+    if skipped:
+        print(_c("SKIPPED LAYERS", _DIM, use_color), file=file)
+        for entry in skipped[:10]:
+            layer_name = entry.get("layer", "?")
+            reason = entry.get("reason", "")
+            code = entry.get("reason_code", "")
+            line = f"  {layer_name:<12} {reason}"
+            if code:
+                line += f"  [{code}]"
+            print(_c(line, _DIM, use_color), file=file)
+        print(file=file)
+
+
+# ---------------------------------------------------------------------------
+# Markdown renderers — each returns a list of lines
+# ---------------------------------------------------------------------------
+
+def _md_render_structure(data: dict) -> list[str]:
+    lines: list[str] = []
+    file_count = data.get("file_count", 0)
+    languages = data.get("languages", {})
+    top_dirs = data.get("top_dirs", [])
+    unreadable = data.get("unreadable_dirs", [])
+    lines.append(f"- **{file_count} files**")
+    for lang, count in sorted(languages.items()):
+        lines.append(f"- {lang}: {count}")
+    if top_dirs:
+        lines.append(f"- Top dirs: {', '.join(top_dirs)}")
+    if unreadable:
+        n = len(unreadable)
+        lines.append(
+            f"- **Warning:** {n} director{'y' if n == 1 else 'ies'} could not be read (permission denied)"
+        )
+    return lines
+
+
+def _md_render_complexity(data: dict) -> list[str]:
+    lines: list[str] = []
+    avg = data.get("avg_complexity")
+    if avg is not None:
+        lines.append(f"**Average complexity:** {avg:.1f}")
+        lines.append("")
+    hotspots = data.get("hotspots", [])
+    if hotspots:
+        lines.append("| File | CC | Grade |")
+        lines.append("|------|-----|-------|")
+        for h in hotspots[:5]:
+            lines.append(f"| `{h.get('file')}` | {h.get('complexity')} | {h.get('grade')} |")
+    return lines
+
+
+def _md_render_lint(data: dict) -> list[str]:
+    lines: list[str] = []
+    errors = data.get("error_count", 0)
+    warnings = data.get("warning_count", 0)
+    lines.append(
+        f"**{errors} error{'s' if errors != 1 else ''}**, {warnings} warning{'s' if warnings != 1 else ''}"
+    )
+    files = data.get("files_with_issues", [])
+    if files:
+        lines.append("")
+        lines.append("| File | Errors | Warnings |")
+        lines.append("|------|--------|----------|")
+        for f in files[:10]:
+            lines.append(f"| `{f.get('file')}` | {f.get('errors')} | {f.get('warnings')} |")
+    return lines
+
+
+def _md_render_types(data: dict) -> list[str]:
+    lines: list[str] = []
+    errors = data.get("error_count", 0)
+    warnings = data.get("warning_count", 0)
+    lines.append(
+        f"**{errors} type error{'s' if errors != 1 else ''}**, {warnings} warning{'s' if warnings != 1 else ''}"
+    )
+    entries = data.get("errors", [])
+    if entries:
+        lines.append("")
+        lines.append("| File | Line | Code | Message |")
+        lines.append("|------|------|------|---------|")
+        for e in entries[:10]:
+            lines.append(
+                f"| `{e.get('file')}` | {e.get('line')} | {e.get('code')} | {e.get('message')} |"
+            )
+    return lines
+
+
+def _md_render_dependencies(data: dict) -> list[str]:
+    lines: list[str] = []
+    for ecosystem, info in data.items():
+        runtime = info.get("runtime", [])
+        dev = info.get("dev", [])
+        total = info.get("total", 0)
+        source_file = info.get("source_file", "")
+        lines.append(f"**{total} dependencies** ({source_file})")
+        lines.append("")
+        lines.append("| Scope | Package |")
+        lines.append("|-------|---------|")
+        for pkg in runtime:
+            lines.append(f"| runtime | `{pkg}` |")
+        for pkg in dev:
+            lines.append(f"| dev | `{pkg}` |")
+    return lines
+
+
+def _md_render_generic(data: dict) -> list[str]:
+    return [f"```json\n{json.dumps(data, indent=2)}\n```"]
+
+
+_MARKDOWN_RENDERERS: dict[str, Callable[[dict], list[str]]] = {
+    "structure": _md_render_structure,
+    "complexity": _md_render_complexity,
+    "lint": _md_render_lint,
+    "types": _md_render_types,
+    "dependencies": _md_render_dependencies,
+}
+
+
 def to_json(snapshot: dict[str, Any]) -> str:
     """Serialize snapshot to a JSON string (pretty-printed, sorted keys)."""
     return json.dumps(snapshot, indent=2, sort_keys=False, default=str)
+
+
+def to_markdown(snapshot: dict[str, Any]) -> str:
+    """Render snapshot to a Markdown report string."""
+    lines: list[str] = []
+    repo = snapshot.get("repo", ".")
+    scanned_at = snapshot.get("scanned_at", "")
+    layers = snapshot.get("layers", {})
+    skipped = snapshot.get("skipped_layers", [])
+
+    lines.append(f"# Repo Cartographer — {Path(repo).name}")
+    lines.append(f"")
+    lines.append(f"**Repo:** `{repo}`  ")
+    lines.append(f"**Scanned at:** {scanned_at}  ")
+    lines.append(f"**Schema version:** {snapshot.get('schema_version', '?')}  ")
+    lines.append("")
+
+    for layer_key, layer in layers.items():
+        source = layer.get("source", layer_key)
+        confidence = layer.get("confidence", 0.0)
+        data = layer.get("data", {})
+
+        lines.append(f"## {layer_key.capitalize()} (`{source}`, confidence: {confidence:.2f})")
+        lines.append("")
+
+        md_fn = _MARKDOWN_RENDERERS.get(layer_key, _md_render_generic)
+        lines.extend(md_fn(data))
+
+        lines.append("")
+
+    if skipped:
+        lines.append("## Skipped Layers")
+        lines.append("")
+        lines.append("| Layer | Reason | Code |")
+        lines.append("|-------|--------|------|")
+        for entry in skipped:
+            lines.append(
+                f"| {entry.get('layer')} | {entry.get('reason')} | `{entry.get('reason_code')}` |"
+            )
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 def write_outputs(
@@ -212,91 +387,3 @@ def write_outputs(
         md_path.write_text(md_str, encoding="utf-8")
         print(f"Snapshot written to {json_path}")
         print(f"Report written to   {md_path}")
-
-
-def to_markdown(snapshot: dict[str, Any]) -> str:
-    """Render snapshot to a Markdown report string."""
-    lines: list[str] = []
-    repo = snapshot.get("repo", ".")
-    scanned_at = snapshot.get("scanned_at", "")
-    layers = snapshot.get("layers", {})
-    skipped = snapshot.get("skipped_layers", [])
-
-    lines.append(f"# Repo Cartographer — {Path(repo).name}")
-    lines.append(f"")
-    lines.append(f"**Repo:** `{repo}`  ")
-    lines.append(f"**Scanned at:** {scanned_at}  ")
-    lines.append(f"**Schema version:** {snapshot.get('schema_version', '?')}  ")
-    lines.append("")
-
-    for layer_key, layer in layers.items():
-        source = layer.get("source", layer_key)
-        confidence = layer.get("confidence", 0.0)
-        data = layer.get("data", {})
-
-        lines.append(f"## {layer_key.capitalize()} (`{source}`, confidence: {confidence:.2f})")
-        lines.append("")
-
-        if layer_key == "structure":
-            file_count = data.get("file_count", 0)
-            languages = data.get("languages", {})
-            top_dirs = data.get("top_dirs", [])
-            unreadable = data.get("unreadable_dirs", [])
-            lines.append(f"- **{file_count} files**")
-            for lang, count in sorted(languages.items()):
-                lines.append(f"- {lang}: {count}")
-            if top_dirs:
-                lines.append(f"- Top dirs: {', '.join(top_dirs)}")
-            if unreadable:
-                n = len(unreadable)
-                lines.append(f"- **Warning:** {n} director{'y' if n == 1 else 'ies'} could not be read (permission denied)")
-        elif layer_key == "complexity":
-            avg = data.get("avg_complexity")
-            if avg is not None:
-                lines.append(f"**Average complexity:** {avg:.1f}")
-                lines.append("")
-            hotspots = data.get("hotspots", [])
-            if hotspots:
-                lines.append("| File | CC | Grade |")
-                lines.append("|------|-----|-------|")
-                for h in hotspots[:5]:
-                    lines.append(f"| `{h.get('file')}` | {h.get('complexity')} | {h.get('grade')} |")
-        elif layer_key == "lint":
-            errors = data.get("error_count", 0)
-            warnings = data.get("warning_count", 0)
-            lines.append(f"**{errors} error{'s' if errors != 1 else ''}**, {warnings} warning{'s' if warnings != 1 else ''}")
-            files = data.get("files_with_issues", [])
-            if files:
-                lines.append("")
-                lines.append("| File | Errors | Warnings |")
-                lines.append("|------|--------|----------|")
-                for f in files[:10]:
-                    lines.append(f"| `{f.get('file')}` | {f.get('errors')} | {f.get('warnings')} |")
-        elif layer_key == "types":
-            errors = data.get("error_count", 0)
-            warnings = data.get("warning_count", 0)
-            lines.append(f"**{errors} type error{'s' if errors != 1 else ''}**, {warnings} warning{'s' if warnings != 1 else ''}")
-            entries = data.get("errors", [])
-            if entries:
-                lines.append("")
-                lines.append("| File | Line | Code | Message |")
-                lines.append("|------|------|------|---------|")
-                for e in entries[:10]:
-                    lines.append(f"| `{e.get('file')}` | {e.get('line')} | {e.get('code')} | {e.get('message')} |")
-        else:
-            lines.append(f"```json\n{json.dumps(data, indent=2)}\n```")
-
-        lines.append("")
-
-    if skipped:
-        lines.append("## Skipped Layers")
-        lines.append("")
-        lines.append("| Layer | Reason | Code |")
-        lines.append("|-------|--------|------|")
-        for entry in skipped:
-            lines.append(
-                f"| {entry.get('layer')} | {entry.get('reason')} | `{entry.get('reason_code')}` |"
-            )
-        lines.append("")
-
-    return "\n".join(lines)
