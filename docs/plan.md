@@ -18,7 +18,7 @@ you run on an unfamiliar codebase or feed to an AI agent.
 - [x] Layer 00: Structure (walker, built-in) — complete including partial-scan warnings
 - [x] Layer 01: Complexity (radon, Python) — complete, live scan verified
 - [x] Layer 02: Lint (eslint, JS/TS) — complete including exit code fix, dedicated renderer
-- [x] Layer 03: Types (tsc, TypeScript)
+- [x] Layer 03: Types (tsc, TypeScript) — complete, live scan verified
 
 **Infrastructure:**
 - [x] `AdapterBase` ABC with `WalkerContext`, `AdapterError`

@@ -76,6 +76,8 @@ def to_terminal(
             _render_complexity(data, use_color, file)
         elif layer_key == "lint":
             _render_lint(data, use_color, file)
+        elif layer_key == "types":
+            _render_types(data, use_color, file)
         else:
             # Generic layer rendering for future adapters.
             print(f"  {data}", file=file)
@@ -155,6 +157,26 @@ def _render_lint(data: dict, use_color: bool, file: TextIO) -> None:
                 rule = msg.get("rule", "?")
                 lineno = msg.get("line", 0)
                 print(f"      {rule}  line {lineno}", file=file)
+
+
+def _render_types(data: dict, use_color: bool, file: TextIO) -> None:
+    errors = data.get("error_count", 0)
+    warnings = data.get("warning_count", 0)
+    entries = data.get("errors", [])
+
+    summary = f"  {errors} error{'s' if errors != 1 else ''}  {warnings} warning{'s' if warnings != 1 else ''}"
+    print(_c(summary, _YELLOW, use_color) if errors > 0 else summary, file=file)
+
+    if entries:
+        print("  Type errors:", file=file)
+        for e in entries[:5]:
+            fname = e.get("file", "?")
+            lineno = e.get("line", 0)
+            code = e.get("code", "")
+            message = e.get("message", "")
+            loc = f"{fname}:{lineno}"
+            line = f"    {loc:<50} {code}  {message}"
+            print(_c(line, _YELLOW, use_color), file=file)
 
 
 def to_json(snapshot: dict[str, Any]) -> str:
@@ -250,6 +272,17 @@ def to_markdown(snapshot: dict[str, Any]) -> str:
                 lines.append("|------|--------|----------|")
                 for f in files[:10]:
                     lines.append(f"| `{f.get('file')}` | {f.get('errors')} | {f.get('warnings')} |")
+        elif layer_key == "types":
+            errors = data.get("error_count", 0)
+            warnings = data.get("warning_count", 0)
+            lines.append(f"**{errors} type error{'s' if errors != 1 else ''}**, {warnings} warning{'s' if warnings != 1 else ''}")
+            entries = data.get("errors", [])
+            if entries:
+                lines.append("")
+                lines.append("| File | Line | Code | Message |")
+                lines.append("|------|------|------|---------|")
+                for e in entries[:10]:
+                    lines.append(f"| `{e.get('file')}` | {e.get('line')} | {e.get('code')} | {e.get('message')} |")
         else:
             lines.append(f"```json\n{json.dumps(data, indent=2)}\n```")
 

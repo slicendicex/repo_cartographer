@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-04-19 (layers 00, 01, 02 complete — live scan verified)
+Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 
 ---
 
@@ -27,7 +27,7 @@ Last updated: 2026-04-19 (layers 00, 01, 02 complete — live scan verified)
 | 00 Structure | `structure` | walker (built-in) | Done |
 | 01 Complexity | `complexity` | radon | Complete — live scan verified |
 | 02 Lint | `lint` | eslint | Complete — exit code handling, dedicated renderer |
-| 03 Types | `types` | tsc | Done |
+| 03 Types | `types` | tsc | Complete — exit code fix, dedicated renderer, live scan verified |
 
 ### Tests
 
@@ -35,12 +35,12 @@ Last updated: 2026-04-19 (layers 00, 01, 02 complete — live scan verified)
 |---|---|---|
 | Walker | `tests/test_walker.py` | 12 |
 | Orchestrator | `tests/test_orchestrator.py` | 10 |
-| Renderer | `tests/test_renderer.py` | 25 |
+| Renderer | `tests/test_renderer.py` | 31 |
 | CLI | `tests/test_cli.py` | 6 |
 | Radon adapter | `tests/adapters/test_radon.py` | 14 |
 | ESLint adapter | `tests/adapters/test_eslint.py` | 16 |
-| Tsc adapter | `tests/adapters/test_tsc.py` | 11 |
-| **Total** | | **93 / 93 passing** |
+| Tsc adapter | `tests/adapters/test_tsc.py` | 16 |
+| **Total** | | **104 / 104 passing** |
 
 ### Test fixtures
 

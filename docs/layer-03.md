@@ -4,7 +4,7 @@
 **Source:** `tsc`
 **Language:** TypeScript
 **Confidence:** `files_with_errors / total_typescript_files` (0.5 if clean)
-**Status:** DONE
+**Status:** COMPLETE
 
 ---
 
@@ -98,13 +98,41 @@ Groups: `file`, `line`, `col`, `severity`, `code`, `message`.
 
 ---
 
-## Terminal rendering
+## Exit code handling
 
-Rendered by the generic layer renderer (no custom renderer in MVP):
+| Exit code | Meaning | Adapter behavior |
+|---|---|---|
+| 0 | No type errors | Return stdout (empty output) |
+| 1 | Type errors found | Return stdout (error lines — the normal result) |
+| 2 | Fatal error (bad config, missing files) | Raise `AdapterError("parse_error")` |
+
+`run()` uses `subprocess.run()` directly to distinguish exit code 1 from exit code 2.
+
+---
+
+## Terminal rendering
 
 ```
 TYPES (tsc, confidence: 0.60)
-  {'error_count': 5, 'warning_count': 1, 'errors': [...]}
+  5 errors  1 warning
+  Type errors:
+    src/main.ts:10                                     TS2322  Type 'string' is not assignable to type 'number'.
+    src/util.ts:3                                      TS2304  Cannot find name 'foo'.
 ```
 
-Custom types renderer is a future improvement.
+Error lines always render in yellow. Up to 5 errors shown.
+
+---
+
+## Markdown rendering
+
+```markdown
+**5 type errors**, 1 warning
+
+| File | Line | Code | Message |
+|------|------|------|---------|
+| `src/main.ts` | 10 | TS2322 | Type 'string' is not assignable to type 'number'. |
+| `src/util.ts` | 3 | TS2304 | Cannot find name 'foo'. |
+```
+
+Up to 10 errors shown in the table.

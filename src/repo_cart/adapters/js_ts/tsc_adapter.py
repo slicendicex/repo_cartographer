@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 from repo_cart.adapters.base import AdapterBase, AdapterError, WalkerContext
@@ -52,18 +53,29 @@ class TscAdapter(AdapterBase):
         binary = _find_tsc(path)
         if binary is None:
             raise AdapterError("tsc not found", "not_installed")
+
+        # tsc exit codes:
+        #   0 — no type errors
+        #   1 — type errors found (stdout has error lines — the normal result)
+        #   2 — fatal error (bad config, missing files — not parseable)
         try:
-            return self._run_subprocess(
+            result = subprocess.run(
                 [binary, "--noEmit", "--pretty", "false"],
                 cwd=path,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
             )
-        except AdapterError as exc:
-            # tsc exits non-zero when there are type errors — that is the expected
-            # success case. Re-raise only genuine failures (not_installed, timeout).
-            if exc.reason_code in ("not_installed", "timeout"):
-                raise
-            # Return the raw output (stdout+stderr) so parse() can process it.
-            return str(exc)
+        except subprocess.TimeoutExpired:
+            raise AdapterError(f"tsc timed out after {self.timeout}s", "timeout")
+
+        if result.returncode == 2:
+            raise AdapterError(
+                result.stderr or result.stdout or "tsc fatal error (exit 2)",
+                "parse_error",
+            )
+
+        return result.stdout + result.stderr
 
     def parse(self, raw: str) -> dict:
         errors: list[dict] = []

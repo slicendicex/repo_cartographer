@@ -1,7 +1,8 @@
 """Tests for TscAdapter."""
 
+import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -50,10 +51,55 @@ class TestTscAdapterRun:
     def setup_method(self):
         self.adapter = TscAdapter()
 
+    def _mock_run(self, returncode, stdout="", stderr=""):
+        mock = MagicMock()
+        mock.returncode = returncode
+        mock.stdout = stdout
+        mock.stderr = stderr
+        return mock
+
     def test_raises_no_config_when_tsconfig_absent(self, tmp_path):
         with pytest.raises(AdapterError) as exc_info:
             self.adapter.run(tmp_path)
         assert exc_info.value.reason_code == "no_config"
+
+    def test_raises_not_installed_when_tsc_missing(self, tmp_path):
+        (tmp_path / "tsconfig.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.tsc_adapter._find_tsc", return_value=None):
+            with pytest.raises(AdapterError) as exc_info:
+                self.adapter.run(tmp_path)
+        assert exc_info.value.reason_code == "not_installed"
+
+    def test_exit_0_returns_output(self, tmp_path):
+        (tmp_path / "tsconfig.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.tsc_adapter._find_tsc", return_value="/usr/bin/tsc"), \
+             patch("subprocess.run", return_value=self._mock_run(0, stdout="")):
+            result = self.adapter.run(tmp_path)
+        assert result == ""
+
+    def test_exit_1_returns_error_output(self, tmp_path):
+        # exit 1 = type errors found — should NOT raise, should return output
+        (tmp_path / "tsconfig.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.tsc_adapter._find_tsc", return_value="/usr/bin/tsc"), \
+             patch("subprocess.run", return_value=self._mock_run(1, stdout=_TSC_OUTPUT)):
+            result = self.adapter.run(tmp_path)
+        assert "TS2322" in result
+
+    def test_exit_2_raises_parse_error(self, tmp_path):
+        (tmp_path / "tsconfig.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.tsc_adapter._find_tsc", return_value="/usr/bin/tsc"), \
+             patch("subprocess.run", return_value=self._mock_run(2, stderr="error TS5023: Unknown compiler option")):
+            with pytest.raises(AdapterError) as exc_info:
+                self.adapter.run(tmp_path)
+        assert exc_info.value.reason_code == "parse_error"
+
+    def test_timeout_raises_adapter_error(self, tmp_path):
+        (tmp_path / "tsconfig.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.tsc_adapter._find_tsc", return_value="/usr/bin/tsc"), \
+             patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="tsc", timeout=30)):
+            with pytest.raises(AdapterError) as exc_info:
+                self.adapter.run(tmp_path)
+        assert exc_info.value.reason_code == "timeout"
 
 
 class TestFindTsc:

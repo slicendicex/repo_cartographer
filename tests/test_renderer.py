@@ -193,6 +193,68 @@ class TestRenderLint:
         assert "0 errors" in out.getvalue()
 
 
+_TYPES_SNAPSHOT = {
+    **_SNAPSHOT,
+    "layers": {
+        **_SNAPSHOT["layers"],
+        "types": {
+            "source": "tsc",
+            "confidence": 0.60,
+            "data": {
+                "error_count": 2,
+                "warning_count": 1,
+                "errors": [
+                    {"file": "src/main.ts", "line": 10, "col": 5, "code": "TS2322",
+                     "message": "Type 'string' is not assignable to type 'number'."},
+                    {"file": "src/util.ts", "line": 3, "col": 1, "code": "TS2304",
+                     "message": "Cannot find name 'foo'."},
+                ],
+            },
+        },
+    },
+}
+
+
+class TestRenderTypes:
+    def test_shows_error_and_warning_counts(self):
+        out = io.StringIO()
+        to_terminal(_TYPES_SNAPSHOT, use_color=False, file=out)
+        assert "2 errors" in out.getvalue()
+        assert "1 warning" in out.getvalue()
+
+    def test_shows_file_and_line(self):
+        out = io.StringIO()
+        to_terminal(_TYPES_SNAPSHOT, use_color=False, file=out)
+        assert "src/main.ts:10" in out.getvalue()
+
+    def test_shows_error_code(self):
+        out = io.StringIO()
+        to_terminal(_TYPES_SNAPSHOT, use_color=False, file=out)
+        assert "TS2322" in out.getvalue()
+
+    def test_markdown_has_error_count(self):
+        result = to_markdown(_TYPES_SNAPSHOT)
+        assert "2 type errors" in result
+
+    def test_markdown_has_error_table(self):
+        result = to_markdown(_TYPES_SNAPSHOT)
+        assert "| File |" in result
+        assert "TS2322" in result
+
+    def test_no_errors_renders_cleanly(self):
+        snapshot = {**_TYPES_SNAPSHOT, "layers": {
+            **_TYPES_SNAPSHOT["layers"],
+            "types": {
+                "source": "tsc",
+                "confidence": 0.5,
+                "data": {"error_count": 0, "warning_count": 0, "errors": []},
+            },
+        }}
+        out = io.StringIO()
+        to_terminal(snapshot, use_color=False, file=out)
+        assert "0 errors" in out.getvalue()
+
+
 class TestToJson:
     def test_valid_json(self):
         result = to_json(_SNAPSHOT)
