@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 from repo_cart.adapters.base import AdapterBase, AdapterError, WalkerContext
@@ -68,10 +69,31 @@ class ESLintAdapter(AdapterBase):
             raise AdapterError("eslint not found", "not_installed")
         if not _has_config(path):
             raise AdapterError("no eslint config found", "no_config")
-        return self._run_subprocess(
-            [binary, "--format", "json", str(path)],
-            cwd=path,
-        )
+
+        # eslint exit codes:
+        #   0 — no lint errors
+        #   1 — lint errors found (stdout contains valid JSON — the normal result)
+        #   2 — fatal error (bad config, internal crash — not parseable)
+        # _run_subprocess raises on any non-zero exit, so we invoke subprocess
+        # directly here to distinguish 1 from 2.
+        try:
+            result = subprocess.run(
+                [binary, "--format", "json", str(path)],
+                cwd=path,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+            )
+        except subprocess.TimeoutExpired:
+            raise AdapterError(f"eslint timed out after {self.timeout}s", "timeout")
+
+        if result.returncode == 2:
+            raise AdapterError(
+                result.stderr or "eslint fatal error (exit 2)",
+                "parse_error",
+            )
+
+        return result.stdout
 
     def parse(self, raw: str) -> dict:
         try:

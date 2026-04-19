@@ -87,6 +87,112 @@ class TestToTerminal:
         assert "\033[" not in out.getvalue()
 
 
+class TestRenderComplexity:
+    def test_shows_avg_complexity(self):
+        out = io.StringIO()
+        to_terminal(_SNAPSHOT, use_color=False, file=out)
+        assert "Avg complexity: 4.2" in out.getvalue()
+
+    def test_shows_hotspot_file(self):
+        out = io.StringIO()
+        to_terminal(_SNAPSHOT, use_color=False, file=out)
+        assert "src/main.py" in out.getvalue()
+
+    def test_shows_cc_and_grade(self):
+        out = io.StringIO()
+        to_terminal(_SNAPSHOT, use_color=False, file=out)
+        assert "CC=12" in out.getvalue()
+        assert "B" in out.getvalue()
+
+    def test_markdown_has_avg(self):
+        result = to_markdown(_SNAPSHOT)
+        assert "4.2" in result
+
+    def test_markdown_has_hotspot_table(self):
+        result = to_markdown(_SNAPSHOT)
+        assert "| File |" in result
+        assert "src/main.py" in result
+
+    def test_empty_hotspots_renders_cleanly(self):
+        snapshot = {**_SNAPSHOT, "layers": {
+            **_SNAPSHOT["layers"],
+            "complexity": {
+                "source": "radon",
+                "confidence": 0.0,
+                "data": {"avg_complexity": 0.0, "function_count": 0, "hotspots": []},
+            },
+        }}
+        out = io.StringIO()
+        to_terminal(snapshot, use_color=False, file=out)
+        assert "Avg complexity: 0.0" in out.getvalue()
+
+
+_LINT_SNAPSHOT = {
+    **_SNAPSHOT,
+    "layers": {
+        **_SNAPSHOT["layers"],
+        "lint": {
+            "source": "eslint",
+            "confidence": 0.75,
+            "data": {
+                "error_count": 3,
+                "warning_count": 1,
+                "files_with_issues": [
+                    {
+                        "file": "/repo/src/index.ts",
+                        "errors": 3,
+                        "warnings": 1,
+                        "messages": [
+                            {"rule": "no-unused-vars", "severity": 2, "line": 5, "message": "unused"},
+                        ],
+                    }
+                ],
+            },
+        },
+    },
+}
+
+
+class TestRenderLint:
+    def test_shows_error_and_warning_counts(self):
+        out = io.StringIO()
+        to_terminal(_LINT_SNAPSHOT, use_color=False, file=out)
+        assert "3 errors" in out.getvalue()
+        assert "1 warning" in out.getvalue()
+
+    def test_shows_file_with_issue(self):
+        out = io.StringIO()
+        to_terminal(_LINT_SNAPSHOT, use_color=False, file=out)
+        assert "index.ts" in out.getvalue()
+
+    def test_shows_rule_name(self):
+        out = io.StringIO()
+        to_terminal(_LINT_SNAPSHOT, use_color=False, file=out)
+        assert "no-unused-vars" in out.getvalue()
+
+    def test_markdown_has_error_count(self):
+        result = to_markdown(_LINT_SNAPSHOT)
+        assert "3 errors" in result
+
+    def test_markdown_has_file_table(self):
+        result = to_markdown(_LINT_SNAPSHOT)
+        assert "| File |" in result
+        assert "index.ts" in result
+
+    def test_no_errors_renders_cleanly(self):
+        snapshot = {**_LINT_SNAPSHOT, "layers": {
+            **_LINT_SNAPSHOT["layers"],
+            "lint": {
+                "source": "eslint",
+                "confidence": 0.5,
+                "data": {"error_count": 0, "warning_count": 0, "files_with_issues": []},
+            },
+        }}
+        out = io.StringIO()
+        to_terminal(snapshot, use_color=False, file=out)
+        assert "0 errors" in out.getvalue()
+
+
 class TestToJson:
     def test_valid_json(self):
         result = to_json(_SNAPSHOT)

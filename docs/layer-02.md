@@ -4,7 +4,7 @@
 **Source:** `eslint`
 **Language:** JavaScript / TypeScript
 **Confidence:** `files_with_issues / total_js_ts_files` (0.5 if no issues found but eslint ran)
-**Status:** DONE
+**Status:** COMPLETE
 
 ---
 
@@ -101,13 +101,47 @@ Checked in order:
 
 ---
 
-## Terminal rendering
+## Exit code handling
 
-Rendered by the generic layer renderer (no custom renderer in MVP):
+eslint exits non-zero in two distinct cases that require different treatment:
+
+| Exit code | Meaning | Adapter behavior |
+|---|---|---|
+| 0 | No errors | Return stdout (empty issues list) |
+| 1 | Lint errors found | Return stdout (valid JSON — the normal result) |
+| 2 | Fatal error (bad config, crash) | Raise `AdapterError("parse_error")` |
+
+`run()` uses `subprocess.run()` directly rather than `_run_subprocess()` to distinguish
+exit code 1 (success with errors) from exit code 2 (genuine failure).
+
+---
+
+## Terminal rendering
 
 ```
 LINT (eslint, confidence: 0.75)
-  {'error_count': 12, 'warning_count': 4, 'files_with_issues': [...]}
+  12 errors  4 warnings
+  Files with issues:
+    /repo/src/index.ts                               E=3  W=1
+      no-unused-vars  line 5
+      no-console  line 10
+    /repo/src/util.ts                                E=2  W=0
 ```
 
-Custom lint renderer is a future improvement.
+Lines with errors render in yellow when color is enabled. Up to 5 files shown,
+up to 2 rule messages per file.
+
+---
+
+## Markdown rendering
+
+```markdown
+**12 errors**, 4 warnings
+
+| File | Errors | Warnings |
+|------|--------|----------|
+| `/repo/src/index.ts` | 3 | 1 |
+| `/repo/src/util.ts` | 2 | 0 |
+```
+
+Up to 10 files shown in the table.

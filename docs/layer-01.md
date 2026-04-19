@@ -4,7 +4,7 @@
 **Source:** `radon`
 **Language:** Python
 **Confidence:** `files_with_hotspots / total_python_files` (capped at 1.0)
-**Status:** DONE
+**Status:** COMPLETE
 
 ---
 

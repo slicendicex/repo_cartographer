@@ -74,6 +74,8 @@ def to_terminal(
             _render_structure(data, use_color, file)
         elif layer_key == "complexity":
             _render_complexity(data, use_color, file)
+        elif layer_key == "lint":
+            _render_lint(data, use_color, file)
         else:
             # Generic layer rendering for future adapters.
             print(f"  {data}", file=file)
@@ -130,6 +132,29 @@ def _render_complexity(data: dict, use_color: bool, file: TextIO) -> None:
             line = f"    {fname:<40} CC={cc}  {grade}"
             high = isinstance(cc, (int, float)) and cc > 10
             print(_c(line, _YELLOW, use_color) if high else line, file=file)
+
+
+def _render_lint(data: dict, use_color: bool, file: TextIO) -> None:
+    errors = data.get("error_count", 0)
+    warnings = data.get("warning_count", 0)
+    files = data.get("files_with_issues", [])
+
+    summary = f"  {errors} error{'s' if errors != 1 else ''}  {warnings} warning{'s' if warnings != 1 else ''}"
+    has_errors = errors > 0
+    print(_c(summary, _YELLOW, use_color) if has_errors else summary, file=file)
+
+    if files:
+        print("  Files with issues:", file=file)
+        for f in files[:5]:
+            fname = f.get("file", "?")
+            e = f.get("errors", 0)
+            w = f.get("warnings", 0)
+            line = f"    {fname:<50} E={e}  W={w}"
+            print(_c(line, _YELLOW, use_color) if e > 0 else line, file=file)
+            for msg in f.get("messages", [])[:2]:
+                rule = msg.get("rule", "?")
+                lineno = msg.get("line", 0)
+                print(f"      {rule}  line {lineno}", file=file)
 
 
 def to_json(snapshot: dict[str, Any]) -> str:
@@ -214,6 +239,17 @@ def to_markdown(snapshot: dict[str, Any]) -> str:
                 lines.append("|------|-----|-------|")
                 for h in hotspots[:5]:
                     lines.append(f"| `{h.get('file')}` | {h.get('complexity')} | {h.get('grade')} |")
+        elif layer_key == "lint":
+            errors = data.get("error_count", 0)
+            warnings = data.get("warning_count", 0)
+            lines.append(f"**{errors} error{'s' if errors != 1 else ''}**, {warnings} warning{'s' if warnings != 1 else ''}")
+            files = data.get("files_with_issues", [])
+            if files:
+                lines.append("")
+                lines.append("| File | Errors | Warnings |")
+                lines.append("|------|--------|----------|")
+                for f in files[:10]:
+                    lines.append(f"| `{f.get('file')}` | {f.get('errors')} | {f.get('warnings')} |")
         else:
             lines.append(f"```json\n{json.dumps(data, indent=2)}\n```")
 

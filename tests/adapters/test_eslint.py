@@ -1,8 +1,9 @@
 """Tests for ESLintAdapter."""
 
 import json
+import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -82,6 +83,55 @@ class TestFindEslint:
         with patch("shutil.which", return_value="/usr/bin/eslint"):
             result = _find_eslint(tmp_path)
         assert result == "/usr/bin/eslint"
+
+
+class TestESLintAdapterRun:
+    def setup_method(self):
+        self.adapter = ESLintAdapter()
+
+    def _mock_run(self, returncode, stdout="", stderr=""):
+        mock = MagicMock()
+        mock.returncode = returncode
+        mock.stdout = stdout
+        mock.stderr = stderr
+        return mock
+
+    def test_raises_no_config_when_missing(self, tmp_path):
+        with patch("repo_cart.adapters.js_ts.eslint_adapter._find_eslint", return_value="/usr/bin/eslint"):
+            with pytest.raises(AdapterError) as exc_info:
+                self.adapter.run(tmp_path)
+        assert exc_info.value.reason_code == "no_config"
+
+    def test_exit_0_returns_stdout(self, tmp_path):
+        (tmp_path / "eslint.config.js").write_text("")
+        with patch("repo_cart.adapters.js_ts.eslint_adapter._find_eslint", return_value="/usr/bin/eslint"), \
+             patch("subprocess.run", return_value=self._mock_run(0, stdout=_ESLINT_OUTPUT)):
+            result = self.adapter.run(tmp_path)
+        assert "filePath" in result
+
+    def test_exit_1_returns_stdout(self, tmp_path):
+        # exit 1 = lint errors found — should NOT raise, should return JSON
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.eslint_adapter._find_eslint", return_value="/usr/bin/eslint"), \
+             patch("subprocess.run", return_value=self._mock_run(1, stdout=_ESLINT_OUTPUT)):
+            result = self.adapter.run(tmp_path)
+        assert "filePath" in result
+
+    def test_exit_2_raises_parse_error(self, tmp_path):
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.eslint_adapter._find_eslint", return_value="/usr/bin/eslint"), \
+             patch("subprocess.run", return_value=self._mock_run(2, stderr="Invalid config")):
+            with pytest.raises(AdapterError) as exc_info:
+                self.adapter.run(tmp_path)
+        assert exc_info.value.reason_code == "parse_error"
+
+    def test_timeout_raises_adapter_error(self, tmp_path):
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        with patch("repo_cart.adapters.js_ts.eslint_adapter._find_eslint", return_value="/usr/bin/eslint"), \
+             patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="eslint", timeout=30)):
+            with pytest.raises(AdapterError) as exc_info:
+                self.adapter.run(tmp_path)
+        assert exc_info.value.reason_code == "timeout"
 
 
 class TestESLintAdapterConfidence:
