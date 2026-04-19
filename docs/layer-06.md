@@ -4,7 +4,7 @@
 **Source:** `test_coverage_adapter`
 **Language:** any
 **Confidence:** `min(test_files / total_files, 1.0)` using `ctx.total_files`
-**Status:** PLANNED
+**Status:** COMPLETE
 
 ---
 

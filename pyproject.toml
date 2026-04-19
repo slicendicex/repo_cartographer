@@ -31,6 +31,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+norecursedirs = ["fixtures"]
 
 [tool.coverage.run]
 source = ["src/repo_cart"]

@@ -49,7 +49,7 @@ you run on an unfamiliar codebase or feed to an AI agent.
 **Layers:**
 - [x] Layer 04: Dependencies (`deps_adapter`, `adapters/common/`) — runtime + dev deps from pyproject.toml / requirements.txt / package.json. Includes renderer dispatch table refactor.
 - [x] Layer 05: Entry Points (`entry_points_adapter`, `adapters/common/`) — CLI commands, `__main__.py`, package.json main/bin
-- [ ] Layer 06: Test Coverage (`test_coverage_adapter`, `adapters/common/`) — heuristic test file ratio + untested module list
+- [x] Layer 06: Test Coverage (`test_coverage_adapter`, `adapters/common/`) — heuristic test file ratio + untested module list
 
 **Implementation order (conflict-minimizing):**
 1. Layer 04 first: creates `adapters/common/`, does renderer dispatch table refactor, adds `_render_dependencies()`

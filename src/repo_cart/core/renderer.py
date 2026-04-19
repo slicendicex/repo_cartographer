@@ -171,6 +171,24 @@ def _render_entry_points(data: dict, use_color: bool, file: TextIO) -> None:
         print(f"  package main: {package_main}", file=file)
 
 
+def _render_test_coverage(data: dict, use_color: bool, file: TextIO) -> None:
+    test_files = data.get("test_files", 0)
+    source_files = data.get("source_files", 0)
+    ratio = data.get("coverage_ratio", 0.0)
+    untested = data.get("untested_modules", [])
+
+    pct = int(ratio * 100)
+    print(f"  {test_files} test files / {source_files} source files  ({pct}%)", file=file)
+
+    if untested:
+        shown = untested[:3]
+        extra = len(untested) - len(shown)
+        names = "  ".join(m.replace("src/", "", 1) for m in shown)
+        suffix = f"  (+{extra} more)" if extra > 0 else ""
+        line = f"  Untested: {names}{suffix}"
+        print(_c(line, _YELLOW, use_color), file=file)
+
+
 def _render_generic(data: dict, use_color: bool, file: TextIO) -> None:
     print(f"  {data}", file=file)
 
@@ -182,6 +200,7 @@ _TERMINAL_RENDERERS: dict[str, Callable[..., None]] = {
     "types": _render_types,
     "dependencies": _render_dependencies,
     "entry_points": _render_entry_points,
+    "test_coverage": _render_test_coverage,
 }
 
 
@@ -347,6 +366,24 @@ def _md_render_entry_points(data: dict) -> list[str]:
     return lines
 
 
+def _md_render_test_coverage(data: dict) -> list[str]:
+    lines: list[str] = []
+    test_files = data.get("test_files", 0)
+    source_files = data.get("source_files", 0)
+    ratio = data.get("coverage_ratio", 0.0)
+    untested = data.get("untested_modules", [])
+
+    pct = int(ratio * 100)
+    lines.append(f"**{pct}% structural coverage** — {test_files} test files / {source_files} source files")
+
+    if untested:
+        lines.append("")
+        lines.append("Possibly untested modules:")
+        for mod in untested:
+            lines.append(f"- `{mod}`")
+    return lines
+
+
 def _md_render_generic(data: dict) -> list[str]:
     return [f"```json\n{json.dumps(data, indent=2)}\n```"]
 
@@ -358,6 +395,7 @@ _MARKDOWN_RENDERERS: dict[str, Callable[[dict], list[str]]] = {
     "types": _md_render_types,
     "dependencies": _md_render_dependencies,
     "entry_points": _md_render_entry_points,
+    "test_coverage": _md_render_test_coverage,
 }
 
 

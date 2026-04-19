@@ -10,6 +10,7 @@ import typer
 
 from repo_cart.adapters.common.deps_adapter import DepsAdapter
 from repo_cart.adapters.common.entry_points_adapter import EntryPointsAdapter
+from repo_cart.adapters.common.test_coverage_adapter import TestCoverageAdapter
 from repo_cart.adapters.js_ts.eslint_adapter import ESLintAdapter
 from repo_cart.adapters.js_ts.tsc_adapter import TscAdapter
 from repo_cart.adapters.python.radon_adapter import RadonAdapter
@@ -20,6 +21,7 @@ from repo_cart.core.renderer import write_outputs
 _DEFAULT_ADAPTERS = [
     DepsAdapter(),
     EntryPointsAdapter(),
+    TestCoverageAdapter(),
     RadonAdapter(),
     ESLintAdapter(),
     TscAdapter(),

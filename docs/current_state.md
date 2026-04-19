@@ -30,6 +30,7 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | 03 Types | `types` | tsc | Complete — exit code fix, dedicated renderer, live scan verified |
 | 04 Dependencies | `dependencies` | deps_adapter | Complete — pyproject/requirements/package.json parsing |
 | 05 Entry Points | `entry_points` | entry_points_adapter | Complete — CLI commands, __main__.py, package main/bin |
+| 06 Test Coverage | `test_coverage` | test_coverage_adapter | Complete — heuristic file ratio + untested module stem-match |
 
 ### Tests
 
@@ -44,7 +45,8 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | Tsc adapter | `tests/adapters/test_tsc.py` | 16 |
 | Deps adapter | `tests/adapters/common/test_deps_adapter.py` | 10 |
 | Entry points adapter | `tests/adapters/common/test_entry_points_adapter.py` | 14 |
-| **Total** | | **128 / 128 passing** |
+| Test coverage adapter | `tests/adapters/common/test_test_coverage_adapter.py` | 13 |
+| **Total** | | **141 / 141 passing** |
 
 ### Test fixtures
 
@@ -54,6 +56,7 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | `tests/fixtures/ts-sample/sample.ts` | TypeScript file for tsc adapter |
 | `tests/fixtures/ts-sample/tsconfig.json` | TypeScript config |
 | `tests/fixtures/ts-sample/package.json` | Package manifest |
+| `tests/fixtures/simple-python/` | Python repo with partial test coverage (core.py tested, utils.py untested) |
 
 ---
 
