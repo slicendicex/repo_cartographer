@@ -1,10 +1,18 @@
 # Current State
 
+<<<<<<< HEAD
 Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 
 ---
 
 ## Status: Phase 1 MVP — All layers implemented, tests green
+=======
+Last updated: 2026-04-21 (Phase 1 + 2 complete, Layer 07 added — 8 layers, 164 tests green)
+
+---
+
+## Status: Phase 1 + 2 complete, Layer 07 (Git Activity) added — no blocking TODOs
+>>>>>>> c931621 (Add git activity layer)
 
 ---
 
@@ -31,6 +39,7 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | 04 Dependencies | `dependencies` | deps_adapter | Complete — pyproject/requirements/package.json parsing |
 | 05 Entry Points | `entry_points` | entry_points_adapter | Complete — CLI commands, __main__.py, package main/bin |
 | 06 Test Coverage | `test_coverage` | test_coverage_adapter | Complete — heuristic file ratio + untested module stem-match |
+| 07 Git Activity | `git_activity` | git_activity_adapter | Complete — sentinel git log parsing, --window flag, coverage/confidence split |
 
 ### Tests
 
@@ -46,7 +55,12 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | Deps adapter | `tests/adapters/common/test_deps_adapter.py` | 10 |
 | Entry points adapter | `tests/adapters/common/test_entry_points_adapter.py` | 14 |
 | Test coverage adapter | `tests/adapters/common/test_test_coverage_adapter.py` | 13 |
+<<<<<<< HEAD
 | **Total** | | **141 / 141 passing** |
+=======
+| Git activity adapter | `tests/adapters/vcs/test_git_activity_adapter.py` | 21 |
+| **Total** | | **164 / 164 passing** |
+>>>>>>> c931621 (Add git activity layer)
 
 ### Test fixtures
 
@@ -57,6 +71,12 @@ Last updated: 2026-04-19 (all MVP layers complete — live scan verified)
 | `tests/fixtures/ts-sample/tsconfig.json` | TypeScript config |
 | `tests/fixtures/ts-sample/package.json` | Package manifest |
 | `tests/fixtures/simple-python/` | Python repo with partial test coverage (core.py tested, utils.py untested) |
+
+### VCS adapter
+
+| Module | File | Status |
+|---|---|---|
+| Git Activity | `src/repo_cart/adapters/vcs/git_activity_adapter.py` | Done |
 
 ---
 
@@ -112,16 +132,17 @@ pytest tests/
 
 ---
 
-## Next up (Phase 2 — file-parsing layers)
+## Next up (Phase 3 — v0.3)
 
-Implementation order (each layer is an independent slice):
+Phase 2 is complete. Layer 07 (Git Activity) shipped ahead of Phase 3.
 
-| Layer | Key | Adapter | Location | Prerequisite |
-|---|---|---|---|---|
-| 04 | `dependencies` | `deps_adapter` | `adapters/common/` | Creates `adapters/common/`, renderer dispatch table refactor |
-| 05 | `entry_points` | `entry_points_adapter` | `adapters/common/` | Layer 04 (dispatch table must exist) |
-| 06 | `test_coverage` | `test_coverage_adapter` | `adapters/common/` | Layer 04, adds `tests/fixtures/simple-python/` |
+Remaining deferred items (v0.3 candidates):
 
-All three: pure file parsing, `check()` always returns `True`, registered in `cli.py:_DEFAULT_ADAPTERS`.
-
-See `docs/layer-04.md`, `docs/layer-05.md`, `docs/layer-06.md` for specs and test plans.
+| Item | Notes |
+|---|---|
+| Watch mode (`repo-cart watch`) | inotify/FSEvents watcher, incremental re-scan on file change |
+| Incremental scan | Only re-run adapters for changed files |
+| `.gitignore` parsing in walker | Skip gitignored files from file counts |
+| Adapter auto-discovery via entry points | Plugin architecture for third-party adapters |
+| Custom terminal renderers for lint (02) and types (03) | Currently using shared renderer |
+| PyPI publish | `pyproject.toml` is ready; not yet published |

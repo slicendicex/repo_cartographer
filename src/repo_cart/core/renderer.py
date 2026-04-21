@@ -189,6 +189,39 @@ def _render_test_coverage(data: dict, use_color: bool, file: TextIO) -> None:
         print(_c(line, _YELLOW, use_color), file=file)
 
 
+def _render_git_activity(data: dict, use_color: bool, file: TextIO) -> None:
+    commits = data.get("commits_in_window", 0)
+    contributors = data.get("active_contributors", 0)
+    coverage = data.get("coverage", 0.0)
+    window = data.get("window", "90d")
+    is_shallow = data.get("shallow_clone", False)
+    hot_files = data.get("hot_files", [])
+    hot_dirs = data.get("hot_dirs", [])
+
+    pct = int(coverage * 100)
+    print(
+        f"  {commits} commit{'s' if commits != 1 else ''}  ·  "
+        f"{contributors} contributor{'s' if contributors != 1 else ''}  ·  "
+        f"{pct}% of files active  (window: {window})",
+        file=file,
+    )
+
+    if hot_files:
+        shown = hot_files[:3]
+        extra = len(hot_files) - len(shown)
+        parts = "  ".join(f"{h['path']} (+{h['changes']})" for h in shown)
+        suffix = f"  (+{extra} more)" if extra > 0 else ""
+        print(f"  Hot files:  {parts}{suffix}", file=file)
+
+    if hot_dirs:
+        parts = "  ".join(f"{h['path']}/ (+{h['changes']})" for h in hot_dirs[:5])
+        print(f"  Hot dirs:   {parts}", file=file)
+
+    if is_shallow:
+        warn = "  ⚠ shallow clone — git history may be incomplete (confidence capped at 0.60)"
+        print(_c(warn, _YELLOW, use_color), file=file)
+
+
 def _render_generic(data: dict, use_color: bool, file: TextIO) -> None:
     print(f"  {data}", file=file)
 
@@ -201,6 +234,7 @@ _TERMINAL_RENDERERS: dict[str, Callable[..., None]] = {
     "dependencies": _render_dependencies,
     "entry_points": _render_entry_points,
     "test_coverage": _render_test_coverage,
+    "git_activity": _render_git_activity,
 }
 
 
@@ -384,6 +418,47 @@ def _md_render_test_coverage(data: dict) -> list[str]:
     return lines
 
 
+def _md_render_git_activity(data: dict) -> list[str]:
+    lines: list[str] = []
+    commits = data.get("commits_in_window", 0)
+    contributors = data.get("active_contributors", 0)
+    coverage = data.get("coverage", 0.0)
+    window = data.get("window", "90d")
+    is_shallow = data.get("shallow_clone", False)
+    hot_files = data.get("hot_files", [])
+    hot_dirs = data.get("hot_dirs", [])
+
+    pct = int(coverage * 100)
+    lines.append(
+        f"**{commits} commit{'s' if commits != 1 else ''}** in window `{window}`  —  "
+        f"{contributors} contributor{'s' if contributors != 1 else ''},  {pct}% of files active"
+    )
+
+    if is_shallow:
+        lines.append("")
+        lines.append("> **⚠ Shallow clone** — git history may be incomplete (confidence capped at 0.60)")
+
+    if hot_files:
+        lines.append("")
+        lines.append("**Hot files** (most frequently changed)")
+        lines.append("")
+        lines.append("| File | Changes |")
+        lines.append("|------|---------|")
+        for h in hot_files:
+            lines.append(f"| `{h['path']}` | {h['changes']} |")
+
+    if hot_dirs:
+        lines.append("")
+        lines.append("**Hot directories**")
+        lines.append("")
+        lines.append("| Directory | Changes |")
+        lines.append("|-----------|---------|")
+        for h in hot_dirs:
+            lines.append(f"| `{h['path']}/` | {h['changes']} |")
+
+    return lines
+
+
 def _md_render_generic(data: dict) -> list[str]:
     return [f"```json\n{json.dumps(data, indent=2)}\n```"]
 
@@ -396,6 +471,7 @@ _MARKDOWN_RENDERERS: dict[str, Callable[[dict], list[str]]] = {
     "dependencies": _md_render_dependencies,
     "entry_points": _md_render_entry_points,
     "test_coverage": _md_render_test_coverage,
+    "git_activity": _md_render_git_activity,
 }
 
 

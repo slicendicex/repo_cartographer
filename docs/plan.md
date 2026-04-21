@@ -61,8 +61,10 @@ you run on an unfamiliar codebase or feed to an AI agent.
 - Renderer dispatch table refactor: `_TERMINAL_RENDERERS` + `_MARKDOWN_RENDERERS` dicts replacing elif chains
 - Reduces `to_markdown()` CC from 23 to ~8
 
+**Shipped ahead of v0.3:**
+- [x] Layer 07: Git Activity (`git log` parsing) — sentinel format, `--window` flag, coverage/confidence split, 21 tests
+
 **Deferred to v0.3:**
-- Layer 07: Git Activity (`git log` parsing)
 - Custom terminal renderers for lint (02) and types (03) layers
 - `.gitignore` parsing in walker
 - Adapter auto-discovery via entry points (plugin architecture)

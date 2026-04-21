@@ -14,18 +14,11 @@ from repo_cart.adapters.common.test_coverage_adapter import TestCoverageAdapter
 from repo_cart.adapters.js_ts.eslint_adapter import ESLintAdapter
 from repo_cart.adapters.js_ts.tsc_adapter import TscAdapter
 from repo_cart.adapters.python.radon_adapter import RadonAdapter
+from repo_cart.adapters.vcs.git_activity_adapter import GitActivityAdapter
 from repo_cart.core.orchestrator import scan
 from repo_cart.core.renderer import write_outputs
 
-# All registered adapters. New adapters are added here.
-_DEFAULT_ADAPTERS = [
-    DepsAdapter(),
-    EntryPointsAdapter(),
-    TestCoverageAdapter(),
-    RadonAdapter(),
-    ESLintAdapter(),
-    TscAdapter(),
-]
+_WINDOW_HELP = "Git activity window: 30d, 90d, 365d, or all. Default: 90d."
 
 app = typer.Typer(
     name="repo-cart",
@@ -48,6 +41,10 @@ def scan_cmd(
         bool,
         typer.Option("--no-color", help="Disable ANSI color codes (for CI environments)."),
     ] = False,
+    window: Annotated[
+        str,
+        typer.Option("--window", help=_WINDOW_HELP),
+    ] = "90d",
 ) -> None:
     """Scan a repository and produce a layered map."""
     target = (path or Path(".")).resolve()
@@ -59,10 +56,24 @@ def scan_cmd(
         typer.echo(f"Error: path is not a directory: {target}", err=True)
         raise typer.Exit(code=1)
 
+    if window not in {"30d", "90d", "365d", "all"}:
+        typer.echo(f"Error: --window must be one of 30d, 90d, 365d, all (got {window!r})", err=True)
+        raise typer.Exit(code=1)
+
+    adapters = [
+        DepsAdapter(),
+        EntryPointsAdapter(),
+        TestCoverageAdapter(),
+        RadonAdapter(),
+        ESLintAdapter(),
+        TscAdapter(),
+        GitActivityAdapter(window=window),
+    ]
+
     use_color = not no_color and sys.stdout.isatty()
 
     try:
-        snapshot = scan(target, _DEFAULT_ADAPTERS)
+        snapshot = scan(target, adapters)
     except Exception as exc:
         typer.echo(f"Error: scan failed — {exc}", err=True)
         raise typer.Exit(code=1)
