@@ -135,7 +135,7 @@ def _assemble_snapshot(
     skipped_layers: list[dict[str, Any]],
 ) -> dict[str, Any]:
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "repo": str(repo_path),
         "scanned_at": datetime.datetime.now(datetime.UTC).isoformat(),
         "layers": layers,

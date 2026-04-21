@@ -49,7 +49,7 @@ class TestScan:
     def test_schema_version_present(self, tmp_path):
         snapshot = scan(tmp_path, [])
 
-        assert snapshot["schema_version"] == "1.0"
+        assert snapshot["schema_version"] == "1.1"
 
     def test_repo_path_in_snapshot(self, tmp_path):
         snapshot = scan(tmp_path, [])

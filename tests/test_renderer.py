@@ -7,7 +7,7 @@ from repo_cart.core.renderer import to_terminal, to_json, to_markdown, write_out
 
 
 _SNAPSHOT = {
-    "schema_version": "1.0",
+    "schema_version": "1.1",
     "repo": "/some/repo",
     "scanned_at": "2026-04-19T16:00:00+00:00",
     "layers": {
@@ -255,11 +255,83 @@ class TestRenderTypes:
         assert "0 errors" in out.getvalue()
 
 
+_TEST_COVERAGE_SNAPSHOT = {
+    **_SNAPSHOT,
+    "layers": {
+        **_SNAPSHOT["layers"],
+        "test_coverage": {
+            "source": "test_coverage_adapter",
+            "confidence": 0.5,
+            "data": {
+                "by_language": {
+                    "python": {
+                        "source_files": 4,
+                        "test_files": 2,
+                        "heuristic_ratio": 0.5,
+                        "untested_modules": ["src/utils.py"],
+                    }
+                },
+                "coverage_xml_present": False,
+                "line_rate": None,
+                "branch_rate": None,
+                "coverage_xml_timestamp": None,
+            },
+        },
+    },
+}
+
+_TEST_COVERAGE_XML_SNAPSHOT = {
+    **_SNAPSHOT,
+    "layers": {
+        **_SNAPSHOT["layers"],
+        "test_coverage": {
+            "source": "test_coverage_adapter",
+            "confidence": 1.0,
+            "data": {
+                "by_language": {},
+                "coverage_xml_present": True,
+                "line_rate": 0.87,
+                "branch_rate": 0.72,
+                "coverage_xml_timestamp": "2026-04-20T10:00:00",
+            },
+        },
+    },
+}
+
+
+class TestRenderTestCoverage:
+    def test_shows_language_and_ratio(self):
+        out = io.StringIO()
+        to_terminal(_TEST_COVERAGE_SNAPSHOT, use_color=False, file=out)
+        assert "python" in out.getvalue()
+        assert "50%" in out.getvalue()
+
+    def test_shows_untested_module(self):
+        out = io.StringIO()
+        to_terminal(_TEST_COVERAGE_SNAPSHOT, use_color=False, file=out)
+        assert "utils.py" in out.getvalue()
+
+    def test_shows_line_rate_from_xml(self):
+        out = io.StringIO()
+        to_terminal(_TEST_COVERAGE_XML_SNAPSHOT, use_color=False, file=out)
+        assert "87%" in out.getvalue()
+        assert "coverage.xml" in out.getvalue()
+
+    def test_markdown_shows_ratio(self):
+        result = to_markdown(_TEST_COVERAGE_SNAPSHOT)
+        assert "50%" in result
+
+    def test_markdown_shows_line_rate_from_xml(self):
+        result = to_markdown(_TEST_COVERAGE_XML_SNAPSHOT)
+        assert "87%" in result
+        assert "coverage.xml" in result
+
+
 class TestToJson:
     def test_valid_json(self):
         result = to_json(_SNAPSHOT)
         parsed = json.loads(result)
-        assert parsed["schema_version"] == "1.0"
+        assert parsed["schema_version"] == "1.1"
 
     def test_pretty_printed(self):
         result = to_json(_SNAPSHOT)
@@ -303,4 +375,4 @@ class TestWriteOutputs:
         write_outputs(_SNAPSHOT, output_dir=tmp_path, use_color=False, stdout_mode=False)
 
         data = json.loads((tmp_path / "repo-cart.json").read_text())
-        assert data["schema_version"] == "1.0"
+        assert data["schema_version"] == "1.1"

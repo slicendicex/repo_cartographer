@@ -11,6 +11,7 @@ license = { text = "MIT" }
 keywords = ["cli", "repo", "analysis", "developer-tools"]
 dependencies = [
     "typer>=0.12",
+    "pathspec>=0.9",
 ]
 
 [project.optional-dependencies]

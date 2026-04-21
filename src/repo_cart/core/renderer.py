@@ -172,21 +172,33 @@ def _render_entry_points(data: dict, use_color: bool, file: TextIO) -> None:
 
 
 def _render_test_coverage(data: dict, use_color: bool, file: TextIO) -> None:
-    test_files = data.get("test_files", 0)
-    source_files = data.get("source_files", 0)
-    ratio = data.get("coverage_ratio", 0.0)
-    untested = data.get("untested_modules", [])
+    by_language = data.get("by_language", {})
+    line_rate = data.get("line_rate")
+    xml_present = data.get("coverage_xml_present", False)
+    xml_ts = data.get("coverage_xml_timestamp")
 
-    pct = int(ratio * 100)
-    print(f"  {test_files} test files / {source_files} source files  ({pct}%)", file=file)
+    if xml_present and line_rate is not None:
+        pct = int(line_rate * 100)
+        ts_note = f"  (coverage.xml, {xml_ts})" if xml_ts else ""
+        print(f"  Line coverage: {pct}%{ts_note}", file=file)
 
-    if untested:
-        shown = untested[:3]
-        extra = len(untested) - len(shown)
-        names = "  ".join(m.replace("src/", "", 1) for m in shown)
-        suffix = f"  (+{extra} more)" if extra > 0 else ""
-        line = f"  Untested: {names}{suffix}"
-        print(_c(line, _YELLOW, use_color), file=file)
+    if by_language:
+        for lang, info in by_language.items():
+            n_src = info.get("source_files", 0)
+            n_test = info.get("test_files", 0)
+            ratio = info.get("heuristic_ratio", 0.0)
+            untested = info.get("untested_modules", [])
+            pct = int(ratio * 100)
+            print(f"  {lang}: {n_test} test / {n_src} source  ({pct}%)", file=file)
+            if untested:
+                shown = untested[:3]
+                extra = len(untested) - len(shown)
+                names = "  ".join(m.replace("src/", "", 1) for m in shown)
+                suffix = f"  (+{extra} more)" if extra > 0 else ""
+                line = f"    Untested: {names}{suffix}"
+                print(_c(line, _YELLOW, use_color), file=file)
+    elif not xml_present:
+        print("  No test files found", file=file)
 
 
 def _render_git_activity(data: dict, use_color: bool, file: TextIO) -> None:
@@ -402,19 +414,33 @@ def _md_render_entry_points(data: dict) -> list[str]:
 
 def _md_render_test_coverage(data: dict) -> list[str]:
     lines: list[str] = []
-    test_files = data.get("test_files", 0)
-    source_files = data.get("source_files", 0)
-    ratio = data.get("coverage_ratio", 0.0)
-    untested = data.get("untested_modules", [])
+    by_language = data.get("by_language", {})
+    line_rate = data.get("line_rate")
+    xml_present = data.get("coverage_xml_present", False)
+    xml_ts = data.get("coverage_xml_timestamp")
 
-    pct = int(ratio * 100)
-    lines.append(f"**{pct}% structural coverage** — {test_files} test files / {source_files} source files")
-
-    if untested:
+    if xml_present and line_rate is not None:
+        pct = int(line_rate * 100)
+        ts = f" (coverage.xml, {xml_ts})" if xml_ts else ""
+        lines.append(f"**Line coverage: {pct}%**{ts}")
         lines.append("")
-        lines.append("Possibly untested modules:")
-        for mod in untested:
-            lines.append(f"- `{mod}`")
+
+    for lang, info in by_language.items():
+        n_src = info.get("source_files", 0)
+        n_test = info.get("test_files", 0)
+        ratio = info.get("heuristic_ratio", 0.0)
+        untested = info.get("untested_modules", [])
+        pct = int(ratio * 100)
+        lines.append(f"**{lang}: {pct}% structural** — {n_test} test / {n_src} source")
+        if untested:
+            lines.append("")
+            lines.append(f"Possibly untested {lang} modules:")
+            for mod in untested:
+                lines.append(f"- `{mod}`")
+        lines.append("")
+
+    if not by_language and not xml_present:
+        lines.append("No test files found.")
     return lines
 
 

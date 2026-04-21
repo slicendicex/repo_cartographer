@@ -4,7 +4,7 @@ File tree walker — produces WalkerResult from a repo path.
 Always the first step in a scan. The structure layer is derived from its output
 and is the only layer guaranteed to be present in every snapshot.
 
-Excluded directories (hardcoded; .gitignore parsing is deferred to Phase 2):
+Excluded directories (hardcoded baseline; extended at runtime by .gitignore):
 
     node_modules  .git  __pycache__  .venv  venv  dist  build
     .mypy_cache   .pytest_cache  .tox  .nox  coverage  .eggs
@@ -19,10 +19,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from repo_cart.adapters.base import WalkerContext
+from repo_cart.adapters.common.gitignore import load_gitignore
 
 
 # Directories skipped unconditionally during traversal.
-# .gitignore parsing is deferred from MVP — see docs/layer-00.md.
 EXCLUDED_DIRS: frozenset[str] = frozenset({
     "node_modules",
     ".git",
@@ -50,6 +50,21 @@ LANGUAGE_BY_EXT: dict[str, str] = {
     ".cjs": "javascript",
     ".mts": "typescript",
     ".cts": "typescript",
+    ".go": "go",
+    ".rs": "rust",
+    ".rb": "ruby",
+    ".java": "java",
+    ".kt": "kotlin",
+    ".kts": "kotlin",
+    ".swift": "swift",
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".hpp": "cpp",
+    ".cs": "csharp",
+    ".php": "php",
 }
 
 
@@ -84,6 +99,8 @@ def walk(path: Path) -> WalkerResult:
     if not path.is_dir():
         raise ValueError(f"Path is not a directory: {path}")
 
+    spec = load_gitignore(path)
+
     files_by_language: dict[str, int] = {}
     total_files = 0
     top_dirs: list[str] = []
@@ -92,15 +109,23 @@ def walk(path: Path) -> WalkerResult:
     def _on_error(exc: OSError) -> None:
         unreadable_dirs.append(str(exc.filename))
 
+    def _skip_dir(root_path: Path, d: str) -> bool:
+        if d in EXCLUDED_DIRS:
+            return True
+        if spec is not None:
+            rel = str((root_path / d).relative_to(path))
+            return spec.match_file(rel + "/") or spec.match_file(rel)
+        return False
+
     for root, dirs, files in os.walk(path, followlinks=False, onerror=_on_error):
         root_path = Path(root)
 
         # Collect top-level directories (depth 1 only).
         if root_path == path:
-            top_dirs = sorted(d for d in dirs if d not in EXCLUDED_DIRS)
+            top_dirs = sorted(d for d in dirs if not _skip_dir(root_path, d))
 
-        # Prune excluded directories in-place so os.walk skips their subtrees.
-        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+        # Prune excluded and gitignored directories in-place.
+        dirs[:] = [d for d in dirs if not _skip_dir(root_path, d)]
 
         for filename in files:
             total_files += 1

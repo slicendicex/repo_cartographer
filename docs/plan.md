@@ -64,9 +64,17 @@ you run on an unfamiliar codebase or feed to an AI agent.
 **Shipped ahead of v0.3:**
 - [x] Layer 07: Git Activity (`git log` parsing) — sentinel format, `--window` flag, coverage/confidence split, 21 tests
 
+**Quality improvements (shipped with v0.2 polish pass):**
+- [x] `.gitignore` parsing in walker — `pathspec`-backed shared utility, merged with EXCLUDED_DIRS
+- [x] Test coverage — whole-tree discovery, co-located JS/TS tests, per-language breakdown schema
+- [x] Test coverage — coverage.xml support (line_rate + branch_rate, separate from heuristic_ratio)
+- [x] More languages in walker — Go, Rust, Ruby, Java, Kotlin, Swift, C, C++, C#, PHP
+- [x] schema_version bumped to 1.1
+
 **Deferred to v0.3:**
 - Custom terminal renderers for lint (02) and types (03) layers
-- `.gitignore` parsing in walker
+- TypeScript untested_modules (co-located stem matching)
+- entry_points_adapter gitignore support (uses rglob, needs os.walk refactor)
 - Adapter auto-discovery via entry points (plugin architecture)
 
 ---

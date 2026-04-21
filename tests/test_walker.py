@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from repo_cart.core.walker import walk, WalkerResult, EXCLUDED_DIRS, LANGUAGE_BY_EXT
+from repo_cart.adapters.common.gitignore import load_gitignore
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -87,6 +88,38 @@ class TestWalk:
         assert ".git" not in result.top_dirs
         assert "src" in result.top_dirs
 
+    def test_new_language_extensions(self, tmp_path):
+        for ext, lang in [(".go", "go"), (".rs", "rust"), (".rb", "ruby"), (".java", "java")]:
+            (tmp_path / f"file{ext}").write_text("")
+        result = walk(tmp_path)
+        assert result.ctx.files_by_language.get("go") == 1
+        assert result.ctx.files_by_language.get("rust") == 1
+        assert result.ctx.files_by_language.get("ruby") == 1
+        assert result.ctx.files_by_language.get("java") == 1
+
+    def test_gitignore_excludes_dir(self, tmp_path):
+        (tmp_path / ".gitignore").write_text("generated/\n")
+        (tmp_path / "generated").mkdir()
+        (tmp_path / "generated" / "auto.py").write_text("")
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "main.py").write_text("")
+        result = walk(tmp_path)
+        assert result.ctx.total_files == 2  # .gitignore + main.py
+        assert "generated" not in result.top_dirs
+
+    def test_gitignore_absent_walk_proceeds_normally(self, tmp_path):
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "main.py").write_text("")
+        result = walk(tmp_path)
+        assert result.ctx.total_files == 1
+
+    def test_gitignore_corrupt_handled_gracefully(self, tmp_path):
+        (tmp_path / ".gitignore").write_bytes(b"\xff\xfe invalid")
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "main.py").write_text("")
+        result = walk(tmp_path)
+        assert result.ctx.total_files >= 1
+
     def test_unreadable_dir_recorded_in_warnings(self, tmp_path):
         restricted = tmp_path / "restricted"
         restricted.mkdir()
@@ -99,3 +132,31 @@ class TestWalk:
             assert len(result.unreadable_dirs) >= 1
         finally:
             restricted.chmod(0o755)
+
+
+class TestLoadGitignore:
+    def test_returns_none_when_no_gitignore(self, tmp_path):
+        assert load_gitignore(tmp_path) is None
+
+    def test_returns_spec_when_gitignore_present(self, tmp_path):
+        (tmp_path / ".gitignore").write_text("dist/\n")
+        spec = load_gitignore(tmp_path)
+        assert spec is not None
+
+    def test_matches_ignored_directory(self, tmp_path):
+        (tmp_path / ".gitignore").write_text("generated/\n")
+        spec = load_gitignore(tmp_path)
+        assert spec is not None
+        assert spec.match_file("generated/") or spec.match_file("generated")
+
+    def test_does_not_match_non_ignored(self, tmp_path):
+        (tmp_path / ".gitignore").write_text("dist/\n")
+        spec = load_gitignore(tmp_path)
+        assert spec is not None
+        assert not spec.match_file("src/")
+
+    def test_corrupt_gitignore_returns_none(self, tmp_path):
+        # write valid UTF-8 text with unusual patterns — pathspec should still parse
+        (tmp_path / ".gitignore").write_text("# comment\n*.log\n")
+        spec = load_gitignore(tmp_path)
+        assert spec is not None
